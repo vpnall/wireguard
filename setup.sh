@@ -127,19 +127,109 @@ EOF
     rm -f temprikey tempubkey
 }
 
+
+
+
+
+change_port(){
+
+post1=`/usr/bin/cat /etc/wireguard/wg0.conf | /usr/bin/grep ListenPort |/usr/bin/awk '{print $3}'`
+
+random_number=$((1024 + $RANDOM % 54497)) 
+
+/usr/bin/wg-quick down wg0
+/usr/bin/sed -i "s/$post1/$random_number/g" /etc/wireguard/wg0.conf
+/usr/bin/wg-quick up wg0
+
+echo ++++++++++++++++++
+
+echo $random_number
+
+echo ++++++++++++++++++
+
+}
+
+
+
+web_change_port(){
+
+sudo apt install  -y  nginx  php-fpm php-common php-xml php-mysql php-zip php-gd php-curl
+
+phpver=`ls /etc/php`
+echo $phpver
+
+sed -i '56a location ~ \\.php$ {  \
+      include snippets/fastcgi-php.conf;  \
+     fastcgi_pass unix:/var/run/php/php8.1-fpm.sock; \
+     fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;  \
+     include fastcgi_params; \
+      }  \
+'      /etc/nginx/sites-available/default
+
+sudo systemctl restart nginx
+
+sed -i "s/www-data/root/g" /etc/php/8.1/fpm/pool.d/www.conf
+
+/etc/init.d/php-fpm8.1 stop   //关闭php-fpm  
+  
+nohup /usr/sbin/php-fpm8.1 -R >/dev/null 2>&1 &  
+  
+echo "nohup /usr/sbin/php-fpm8.1 -R >/dev/null 2>&1 &" >> /etc/rc.local  //加入开机启动
+
+
+cat > /var/www/html/wg.sh <<-EOF
+#!/bin/bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
+export PATH
+
+post1=`/usr/bin/cat /etc/wireguard/wg0.conf | /usr/bin/grep ListenPort |/usr/bin/awk '{print $3}'`
+
+
+
+random_number=$((1024 + $RANDOM % 54497)) 
+
+/usr/bin/wg-quick down wg0
+/usr/bin/sed -i "s/$post1/$random_number/g" /etc/wireguard/wg0.conf
+/usr/bin/wg-quick up wg0
+
+echo ++++++++++++++++++
+
+echo $random_number
+
+echo ++++++++++++++++++
+EOF
+
+cat > /var/www/html/port.php <<-EOF
+<?php
+// 要执行的shell命令
+ $command = 'bash wg.sh';
+  
+  // 执行shell命令并获取输出
+  $output = shell_exec($command);
+   
+   // 输出命令结果
+   echo "<pre>$output</pre>";
+  ?>
+EOF
+
+
+chmod 777 /var/run/php/php8.1-fpm.sock
+
 #开始菜单
 start_menu(){
     clear
     echo -e "\033[43;42m ====================================\033[0m"
     echo -e "\033[43;42m 介绍：wireguard一键脚本              \033[0m"
     echo -e "\033[43;42m 系统：Ubuntu                        \033[0m"
-    echo -e "\033[43;42m 作者：A                    \033[0m"
+    echo -e "\033[43;42m 作者：monov6                    \033[0m"
     echo -e "\033[43;42m ====================================\033[0m"
     echo
     echo -e "\033[0;33m 1. 安装wireguard\033[0m"
     echo -e "\033[0;33m 2. 查看客户端二维码\033[0m"
     echo -e "\033[0;31m 3. 删除wireguard\033[0m"
     echo -e "\033[0;33m 4. 增加用户\033[0m"
+	echo -e "\033[0;33m 5. 更换端口\033[0m"
+    echo -e "\033[0;33m 6. web刷新更换端口\033[0m"
     echo -e " 0. 退出脚本"
     echo
     read -p "请输入数字:" num
@@ -156,6 +246,12 @@ start_menu(){
     ;;
     4)
     add_user
+    ;;
+	5)
+    change_port
+    ;;
+	6)
+    web_change_port
     ;;
     0)
     exit 1
